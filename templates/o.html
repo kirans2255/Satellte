@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satellite Dashboard</title>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />  
+
+</head>
+<body>
+
+    <!-- Header Section -->
+    <header class="top-bar">
+        <h1>🌍 Satellite Data Visualization</h1>
+        <button id="toggleMode">🌙 Dark Mode</button>
+    </header>
+
+    <!-- Dashboard Layout -->
+    <div class="dashboard">
+
+        <!-- Left Panel -->
+        <section class="panel left">
+            <h2>📡 Signal Strength</h2>
+            <div class="signal-bar">
+                <div id="signalIndicator"></div>
+            </div>
+
+            <h2>📊 Satellite Uptime</h2>
+            <canvas id="uptimeChart"></canvas>
+
+            <h2>🌍 Satellite Location</h2>
+            <div id="map"></div>  <!-- Map to show satellite position -->
+        </section>
+
+        <!-- Central Real-Time Tracker -->
+        <section class="panel center">
+            <h1>🌍 Real-Time Satellite Tracker 🚀</h1>
+            <input type="text" id="satelliteInput" placeholder="Enter satellite name">
+            <button onclick="searchSatellite()">Search</button>
+            <p id="satelliteResult"></p>
+        </section>
+
+        <!-- Right Panel -->
+        <section class="panel right">
+            <div class="info-box">
+                <h3>🔋 Battery Level</h3>
+                <p><span id="battery">76%</span></p>
+            </div>
+            <div class="info-box">
+                <h3>💾 Storage Used</h3>
+                <p><span id="storage">48GB</span></p>
+            </div>
+            <div class="info-box">
+                <h3>⚠ System Alerts</h3>
+                <p id="alertMessage">No Issues Detected</p>
+            </div>
+            <button id="refreshData">🔄 Refresh Data</button>
+        </section>
+
+    </div>
+
+    <!-- JavaScript -->
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+
+
+</body>
+</html>
