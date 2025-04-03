@@ -125,3 +125,59 @@ function updateMap(latitude, longitude) {
 document.getElementById("toggleMode").addEventListener("click", function () {
     document.body.classList.toggle("light-mode");
 });
+
+
+// ✅ Utility function to handle API requests
+async function fetchData(url, method, body = null) {
+    try {
+        const response = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: body ? JSON.stringify(body) : null,
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Invalid credentials");
+
+        return data;
+    } catch (error) {
+        console.error(`Error in ${method} request:`, error);
+        return null; // Return null to handle errors properly
+    }
+}
+
+// 🔹 Login Function with SweetAlert
+async function login() {
+    const username = document.getElementById("loginUsername").value.trim();
+    const password = document.getElementById("loginPassword").value.trim();
+
+    if (!username || !password) {
+        Swal.fire({
+            icon: "warning",
+            title: "Missing Fields",
+            text: "Please enter both username and password.",
+        });
+        return;
+    }
+
+    const data = await fetchData(`${API_BASE_URL}/login-page`, "POST", { username, password });
+
+    if (data) {
+        Swal.fire({
+            icon: "success",
+            title: "Login Successful!",
+            text: "Redirecting to dashboard...",
+            timer: 2000,
+            showConfirmButton: false,
+        }).then(() => {
+            localStorage.setItem("token", data.token); // Save JWT token
+            window.location.href = "/"; // Redirect to dashboard
+        });
+    } else {
+        Swal.fire({
+            icon: "error",
+            title: "Login Failed",
+            text: "Incorrect username or password.",
+        });
+    }
+}
