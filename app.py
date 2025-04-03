@@ -1,21 +1,33 @@
-from flask import Flask, request, jsonify, render_template,redirect, url_for
+from flask import Flask, request, jsonify, render_template
 import requests
 from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-from dotenv import load_dotenv
-import os
-from db import users
-
-
+from flask_jwt_extended import create_access_token, JWTManager
 
 app = Flask(__name__)
-CORS(app)
-bcrypt = Bcrypt(app)
+CORS(app)  # Apply CORS early
 
-load_dotenv()
-app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+# 🔹 Configure PostgreSQL Database
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:1234@localhost/satellite'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = 'supersecretkey'  # Change this in production
+
+# 🔹 Initialize Extensions
+db = SQLAlchemy()
+db.init_app(app)  # ✅ Properly initialize with app
+bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
+
+# 🔹 Define User Model
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+
+# 🔹 Create tables inside an application context
+with app.app_context():
+    db.create_all()  # ✅ Creates the users table in your PostgreSQL database
 
 N2YO_API_KEY = "RZSQL9-CCVNNJ-VFTQ6K-5FIU"  # Your API key
 
@@ -27,61 +39,49 @@ def home():
 def login_page():
     return render_template('login.html')
 
-
 @app.route('/signup')
 def signup_page():
     return render_template('signup.html')
 
-
-@app.route('/logout')
-def logout():
-    # Clear the token from localStorage on the client side
-    return redirect(url_for('login_page'))
-
-    # 🔥 Signup API
-# ✅ Signup Route - Store data in MongoDB
-@app.route('/signup', methods=['POST'])
+# 🔹 SIGNUP ROUTE
+@app.route('/signup-page', methods=['POST'])
 def signup():
     data = request.json
     username = data.get('username')
     password = data.get('password')
 
     if not username or not password:
-        return jsonify({"error": "Username and password are required"}), 400
+        return jsonify({'error': 'Username and password required'}), 400
 
-    # Check for duplicate username
-    if users.find_one({"username": username}):
-        return jsonify({"error": "Username already exists"}), 409
+    # Check if user exists
+    if User.query.filter_by(username=username).first():
+        return jsonify({'error': 'User already exists'}), 409
 
-    # Store hashed password
+    # Hash password
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
     
-    users.insert_one({
-        "username": username,
-        "password": hashed_password
-    })
+    # Save user
+    new_user = User(username=username, password=hashed_password)
+    db.session.add(new_user)
+    db.session.commit()
 
-    print(f"✅ User {username} added successfully.")
-    
-    return jsonify({"message": "User registered successfully"}), 201
+    return jsonify({'message': 'User created successfully'}), 201
 
-
-# 🔑 Login Route - Authenticate and generate JWT
-@app.route('/login', methods=['POST'])
+# 🔹 LOGIN ROUTE
+@app.route('/login-page', methods=['POST'])
 def login():
     data = request.json
     username = data.get('username')
     password = data.get('password')
 
-    user = users.find_one({"username": username})
-
-    if not user or not bcrypt.check_password_hash(user['password'], password):
-        return jsonify({"error": "Invalid username or password"}), 401
+    user = User.query.filter_by(username=username).first()
+    
+    if not user or not bcrypt.check_password_hash(user.password, password):
+        return jsonify({'error': 'Invalid username or password'}), 401
 
     # Generate JWT token
-    token = create_access_token(identity=str(user['_id']))
-
-    return jsonify({"token": token, "message": "Login successful"}), 200
+    access_token = create_access_token(identity=user.id)
+    return jsonify({'message': 'Login successful', 'token': access_token}), 200
 
 @app.route('/satellite/search', methods=['GET'])
 def search_satellite():
@@ -109,8 +109,6 @@ def search_satellite():
         "longitude": position["satlongitude"],
         "altitude": position["sataltitude"]
     })
-
-
 
 if __name__ == "__main__":
     app.run(debug=True)

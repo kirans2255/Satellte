@@ -1,5 +1,68 @@
 const API_BASE_URL = "http://127.0.0.1:5000";  
 
+// 🔹 Signup Function
+async function signup() {
+    const username = document.getElementById("signupUsername").value;
+    const password = document.getElementById("signupPassword").value;
+
+    if (!username || !password) {
+        alert("Please enter both username and password.");
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/signup-page`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            alert("Signup successful! Please log in.");
+            window.location.href = "/login"; // Redirect to login page
+        } else {
+            alert(data.error || "Signup failed.");
+        }
+    } catch (error) {
+        console.error("Signup error:", error);
+        alert("Error during signup.");
+    }
+}
+
+// 🔹 Login Function
+async function login() {
+    const username = document.getElementById("loginUsername").value;
+    const password = document.getElementById("loginPassword").value;
+
+    if (!username || !password) {
+        alert("Please enter both username and password.");
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/login-page`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            alert("Login successful!");
+            localStorage.setItem("token", data.token); // Save JWT token
+            window.location.href = "/"; // Redirect to dashboard
+        } else {
+            alert(data.error || "Invalid login.");
+        }
+    } catch (error) {
+        console.error("Login error:", error);
+        alert("Error during login.");
+    }
+}
+
 // 🌍 Initialize the map globally
 let map = L.map('map').setView([20, 0], 2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -14,7 +77,7 @@ async function searchSatellite() {
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/satellite/search?id=${satelliteId}`);
+        const response = await fetch(`${API_BASE_URL}/satellite/search?id=${satelliteId}`);   // ✅ Fixed template literal syntax
         const data = await response.json();
 
         if (response.ok) {
@@ -23,7 +86,7 @@ async function searchSatellite() {
                 <strong>Latitude:</strong> ${data.latitude} <br>
                 <strong>Longitude:</strong> ${data.longitude} <br>
                 <strong>Altitude:</strong> ${data.altitude} km
-            `;
+            `;  // ✅ Used backticks for multiline template literals
 
             // Update map with new satellite position
             updateMap(data.latitude, data.longitude);
@@ -61,62 +124,4 @@ function updateMap(latitude, longitude) {
 // 🌙 Dark Mode Toggle
 document.getElementById("toggleMode").addEventListener("click", function () {
     document.body.classList.toggle("light-mode");
-});
-
-
-document.addEventListener("DOMContentLoaded", () => {
-    
-    // 🔥 Handle Signup Form
-    const signupForm = document.getElementById("signupForm");
-    if (signupForm) {
-        signupForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const username = document.getElementById("username").value;
-            const password = document.getElementById("password").value;
-
-            const response = await fetch("/signup", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ username, password })
-            });
-
-            if (response.ok) {
-                alert("Signup successful! Please login.");
-                window.location.href = "/login";
-            } else {
-                const data = await response.json();
-                alert(data.error);
-            }
-        });
-    }
-
-    // 🔥 Handle Login Form
-    const loginForm = document.getElementById("loginForm");
-    if (loginForm) {
-        loginForm.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const username = document.getElementById("username").value;
-            const password = document.getElementById("password").value;
-
-            const response = await fetch("/login", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ username, password })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                // Store token in localStorage
-                localStorage.setItem("token", data.token);
-                window.location.href = "/";
-            } else {
-                alert(data.error);
-            }
-        });
-    }
 });

@@ -120,26 +120,3 @@ button:hover {
     border-radius: 10px;
 }
 
-body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    margin: 50px;
-}
-
-.container {
-    width: 400px;
-    margin: 0 auto;
-}
-
-input, button {
-    width: 100%;
-    padding: 10px;
-    margin: 10px 0;
-}
-
-button {
-    background: #007BFF;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
