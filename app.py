@@ -5,11 +5,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import create_access_token, JWTManager
 
+
 app = Flask(__name__)
 CORS(app)  # Apply CORS early
 
 # 🔹 Configure PostgreSQL Database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:1234@localhost/satellite'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:1234@localhost/Satellite'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = 'supersecretkey'  # Change this in production
 
@@ -23,6 +24,7 @@ jwt = JWTManager(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)  # 🔹 Add this line
     password = db.Column(db.String(200), nullable=False)
 
 # 🔹 Create tables inside an application context
@@ -48,24 +50,25 @@ def signup_page():
 def signup():
     data = request.json
     username = data.get('username')
+    email = data.get('email')  # 🔹 Get email from request
     password = data.get('password')
 
-    if not username or not password:
-        return jsonify({'error': 'Username and password required'}), 400
+    if not username or not email or not password:
+        return jsonify({'error': 'Username, email, and password are required'}), 400
 
-    # Check if user exists
     if User.query.filter_by(username=username).first():
-        return jsonify({'error': 'User already exists'}), 409
+        return jsonify({'error': 'Username already exists'}), 409
 
-    # Hash password
+    if User.query.filter_by(email=email).first():
+        return jsonify({'error': 'Email already in use'}), 409
+
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    
-    # Save user
-    new_user = User(username=username, password=hashed_password)
+    new_user = User(username=username, email=email, password=hashed_password)
     db.session.add(new_user)
     db.session.commit()
 
     return jsonify({'message': 'User created successfully'}), 201
+
 
 # 🔹 LOGIN ROUTE
 @app.route('/login-page', methods=['POST'])
@@ -109,6 +112,18 @@ def search_satellite():
         "longitude": position["satlongitude"],
         "altitude": position["sataltitude"]
     })
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    # No server-side session to clear, but return success
+    return jsonify({'message': 'Logged out successfully'}), 200
+
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -6,12 +6,17 @@
     <title>Signup</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='signup.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+
 </head>
 <body>
     <div class="signup-container">
         <div class="signup-box">
             <h2>Sign Up</h2>
             <form onsubmit="event.preventDefault(); signup();">
+                <div class="input-group">
+                    <input type="email" id="signupEmail" placeholder="Email" required>
+                </div>
                 <div class="input-group">
                     <input type="text" id="signupUsername" placeholder="Username" required>
                 </div>
@@ -25,5 +30,7 @@
     </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
 </body>
 </html>

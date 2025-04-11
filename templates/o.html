@@ -1,39 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
     <title>Satellite Dashboard</title>
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />  
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+
+    <style>
+        body {
+            display: none;
+        }
+    </style>
 
 </head>
+
 <body>
 
     <!-- Header Section -->
     <header class="top-bar">
-        <h1>🌍 Satellite Data Visualization</h1>
-        <button id="toggleMode">🌙 Dark Mode</button>
+        <div class="left-side">
+            <h1>🌍 Satellite Data Visualization</h1>
+        </div>
+        <div class="right-side">
+            <button id="toggleMode">🌙 Dark Mode</button>
+            <button id="logoutBtn">🚪 Logout</button>
+        </div>
     </header>
+
+
 
     <!-- Dashboard Layout -->
     <div class="dashboard">
 
         <!-- Left Panel -->
         <section class="panel left">
-            <h2>📡 Signal Strength</h2>
-            <div class="signal-bar">
-                <div id="signalIndicator"></div>
-            </div>
-
-            <h2>📊 Satellite Uptime</h2>
-            <canvas id="uptimeChart"></canvas>
 
             <h2>🌍 Satellite Location</h2>
-            <div id="map"></div>  <!-- Map to show satellite position -->
+            <div id="map"></div> <!-- Map to show satellite position -->
         </section>
 
         <!-- Central Real-Time Tracker -->
@@ -44,22 +57,7 @@
             <p id="satelliteResult"></p>
         </section>
 
-        <!-- Right Panel -->
-        <section class="panel right">
-            <div class="info-box">
-                <h3>🔋 Battery Level</h3>
-                <p><span id="battery">76%</span></p>
-            </div>
-            <div class="info-box">
-                <h3>💾 Storage Used</h3>
-                <p><span id="storage">48GB</span></p>
-            </div>
-            <div class="info-box">
-                <h3>⚠ System Alerts</h3>
-                <p id="alertMessage">No Issues Detected</p>
-            </div>
-            <button id="refreshData">🔄 Refresh Data</button>
-        </section>
+
 
     </div>
 
@@ -69,7 +67,18 @@
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 
+    <script>
+        const token = localStorage.getItem("token");
+        if (!token) {
+            window.location.href = "/login";
+        } else {
+            document.body.style.display = "block";
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 
 </body>
+
 </html>

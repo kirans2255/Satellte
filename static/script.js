@@ -1,12 +1,19 @@
-const API_BASE_URL = "http://127.0.0.1:5000";  
+const API_BASE_URL = "http://127.0.0.1:5000";
 
 // 🔹 Signup Function
 async function signup() {
-    const username = document.getElementById("signupUsername").value;
-    const password = document.getElementById("signupPassword").value;
+    const username = document.getElementById("signupUsername").value.trim();
+    const email = document.getElementById("signupEmail").value.trim();  // 🔹 Get email
+    const password = document.getElementById("signupPassword").value.trim();
 
-    if (!username || !password) {
-        alert("Please enter both username and password.");
+    if (!username || !email || !password) {
+        Toastify({
+            text: "Please fill all fields: username, email, and password.",
+            duration: 3000,
+            gravity: "top",
+            position: "right",
+            backgroundColor: "#f44336", // red
+        }).showToast();
         return;
     }
 
@@ -14,22 +21,44 @@ async function signup() {
         const response = await fetch(`${API_BASE_URL}/signup-page`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password }),
+            body: JSON.stringify({ username, email, password }),  // 🔹 Include email
         });
 
         const data = await response.json();
 
         if (response.ok) {
-            alert("Signup successful! Please log in.");
-            window.location.href = "/login"; // Redirect to login page
+            Toastify({
+                text: "Signup successful! Redirecting...",
+                duration: 2000,
+                gravity: "top",
+                position: "right",
+                backgroundColor: "#4CAF50", // green
+            }).showToast();
+
+            setTimeout(() => {
+                window.location.href = "/login";
+            }, 2000);
         } else {
-            alert(data.error || "Signup failed.");
+            Toastify({
+                text: data.error || "Signup failed.",
+                duration: 3000,
+                gravity: "top",
+                position: "right",
+                backgroundColor: "#f44336",
+            }).showToast();
         }
     } catch (error) {
         console.error("Signup error:", error);
-        alert("Error during signup.");
+        Toastify({
+            text: "Error during signup.",
+            duration: 3000,
+            gravity: "top",
+            position: "right",
+            backgroundColor: "#f44336",
+        }).showToast();
     }
 }
+
 
 // 🔹 Login Function
 async function login() {
@@ -181,3 +210,57 @@ async function login() {
         });
     }
 }
+
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+    const confirm = await Swal.fire({
+        title: "Are you sure?",
+        text: "You will be logged out.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes, log me out!",
+    });
+
+    if (confirm.isConfirmed) {
+        try {
+            const response = await fetch('/logout', {
+                method: 'POST',
+            });
+
+            if (response.ok) {
+                localStorage.removeItem("token");
+
+                Toastify({
+                    text: "Logged out successfully!",
+                    duration: 2000,
+                    gravity: "top",
+                    position: "right",
+                    backgroundColor: "#4CAF50",
+                }).showToast();
+
+                setTimeout(() => {
+                    window.location.href = "/login";
+                }, 2000);
+            } else {
+                Toastify({
+                    text: "Logout failed.",
+                    duration: 3000,
+                    gravity: "top",
+                    position: "right",
+                    backgroundColor: "#f44336",
+                }).showToast();
+            }
+        } catch (err) {
+            console.error("Logout error:", err);
+            Toastify({
+                text: "Error during logout.",
+                duration: 3000,
+                gravity: "top",
+                position: "right",
+                backgroundColor: "#f44336",
+            }).showToast();
+        }
+    }
+});
