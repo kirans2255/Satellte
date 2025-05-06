@@ -1,0 +1,158 @@
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from flask_jwt_extended import (
+    create_access_token, JWTManager, jwt_required, get_jwt_identity
+)
+from datetime import datetime
+import requests
+
+app = Flask(__name__)
+CORS(app)
+
+# 🔹 Configure PostgreSQL
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:1234@localhost/Satellite'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = 'supersecretkey'
+
+# 🔹 Initialize Extensions
+db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
+jwt = JWTManager(app)
+
+# 🔹 User Model
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+    searches = db.relationship('SatelliteSearch', backref='user', lazy=True)
+
+# 🔹 Satellite Search Model
+class SatelliteSearch(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    norad_id = db.Column(db.String(50), nullable=False)
+    searched_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+# 🔹 Create DB Tables
+with app.app_context():
+    db.create_all()
+
+# 🔹 Static HTML routes
+@app.route('/')
+def home():
+    return render_template('o.html')
+
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
+
+@app.route('/signup')
+def signup_page():
+    return render_template('signup.html')
+
+# 🔹 Signup Route
+@app.route('/signup-page', methods=['POST'])
+def signup():
+    data = request.json
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+
+    if not username or not email or not password:
+        return jsonify({'error': 'Username, email, and password are required'}), 400
+
+    if User.query.filter_by(username=username).first():
+        return jsonify({'error': 'Username already exists'}), 409
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({'error': 'Email already in use'}), 409
+
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+    new_user = User(username=username, email=email, password=hashed_password)
+    db.session.add(new_user)
+    db.session.commit()
+
+    return jsonify({'message': 'User created successfully'}), 201
+
+# 🔹 Login Route
+@app.route('/login-page', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+
+    user = User.query.filter_by(username=username).first()
+
+    if not user or not bcrypt.check_password_hash(user.password, password):
+        return jsonify({'error': 'Invalid username or password'}), 401
+
+    access_token = create_access_token(identity=user.id)
+    return jsonify({'message': 'Login successful', 'token': access_token}), 200
+
+# 🔹 Satellite Search + Log to DB
+N2YO_API_KEY = "RZSQL9-CCVNNJ-VFTQ6K-5FIU"
+
+@app.route('/satellite/search', methods=['GET'])
+@jwt_required()
+def search_satellite():
+    sat_id = request.args.get('id', '').strip()  # Get satellite NORAD ID
+    user_id = get_jwt_identity()  # Get logged-in user's ID
+
+    if not sat_id:
+        return jsonify({"error": "Satellite ID is required"}), 400
+
+    # External API call
+    url = f"https://api.n2yo.com/rest/v1/satellite/positions/{sat_id}/0/0/0/1/?apiKey={N2YO_API_KEY}"
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        return jsonify({"error": "Failed to fetch satellite data"}), response.status_code
+
+    data = response.json()
+
+    if "positions" not in data or not data["positions"]:
+        return jsonify({"error": "No position data available"}), 404
+
+    position = data["positions"][0]
+
+    # ✅ Save the NORAD ID search to the database
+    new_search = SatelliteSearch(norad_id=sat_id, user_id=user_id)
+    db.session.add(new_search)
+    db.session.commit()
+
+    return jsonify({
+        "name": data["info"]["satname"],
+        "latitude": position["satlatitude"],
+        "longitude": position["satlongitude"],
+        "altitude": position["sataltitude"]
+    })
+
+
+# 🔹 User's Search History (optional route)
+@app.route('/user/searches', methods=['GET'])
+@jwt_required()
+def get_user_searches():
+    user_id = get_jwt_identity()
+    searches = SatelliteSearch.query.filter_by(user_id=user_id).order_by(SatelliteSearch.searched_at.desc()).all()
+    return jsonify([
+        {
+            "norad_id": s.norad_id,
+            "searched_at": s.searched_at.isoformat()
+        } for s in searches
+    ])
+
+# 🔹 Logout Route (dummy, since JWT is stateless)
+@app.route('/logout', methods=['POST'])
+def logout():
+    return jsonify({'message': 'Logged out successfully'}), 200
+
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+if __name__ == "__main__":
+    app.run(debug=True)

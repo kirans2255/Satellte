@@ -12,19 +12,305 @@
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         body {
             display: none;
+            background: #0a0a1a;
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+            overflow-x: hidden;
+        }
+
+        .space-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80') no-repeat center center/cover;
+            z-index: -2;
+            animation: spaceMove 30s linear infinite;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://s3-us-west-2.amazonaws.com/s.cdpn.io/1231630/stars.png') repeat;
+            z-index: -1;
+            animation: moveStars 50s linear infinite;
+        }
+
+        .shooting-stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .shooting-star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1),
+                        0 0 0 8px rgba(255, 255, 255, 0.1),
+                        0 0 20px rgba(255, 255, 255, 1);
+            animation: shooting 3s linear infinite;
+        }
+
+        .top-bar {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            animation: slideDown 0.5s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .top-bar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.2), transparent);
+            animation: shine 3s infinite;
+        }
+
+        .top-bar h1 {
+            color: #00f3ff;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+            font-size: 1.8em;
+            letter-spacing: 2px;
+            position: relative;
+            display: inline-block;
+        }
+
+        .top-bar h1::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00f3ff, transparent);
+            animation: glow 2s infinite;
+        }
+
+        .panel {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 243, 255, 0.1) 0%, transparent 70%);
+            animation: rotate 10s linear infinite;
+        }
+
+        .panel:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 0 40px rgba(0, 243, 255, 0.2);
+        }
+
+        .panel h2 {
+            color: #00f3ff;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+            border-bottom: 2px solid rgba(0, 243, 255, 0.3);
+            padding-bottom: 10px;
+            position: relative;
+        }
+
+        .panel h2::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00f3ff, transparent);
+            animation: glow 2s infinite;
+        }
+
+        #map {
+            border: 2px solid rgba(0, 243, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #map::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent, rgba(0, 243, 255, 0.1), transparent);
+            animation: scan 2s linear infinite;
+        }
+
+        button {
+            background: linear-gradient(45deg, #00f3ff, #00a1ff);
+            border: none;
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+
+        button:hover::before {
+            transform: translateX(100%);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+        }
+
+        input {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid rgba(0, 243, 255, 0.3);
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Orbitron', sans-serif;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #00f3ff;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes spaceMove {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 100% 100%; }
+        }
+
+        @keyframes moveStars {
+            from { background-position: 0 0; }
+            to { background-position: -10000px 5000px; }
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-100%); }
+            to { transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 243, 255, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 243, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 243, 255, 0); }
+        }
+
+        @keyframes shine {
+            0% { left: -100%; }
+            20% { left: 100%; }
+            100% { left: 100%; }
+        }
+
+        @keyframes glow {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes scan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+
+        @keyframes shooting {
+            0% {
+                transform: translateX(0) translateY(0);
+                opacity: 1;
+            }
+            70% {
+                transform: translateX(100px) translateY(100px);
+                opacity: 1;
+            }
+            100% {
+                transform: translateX(200px) translateY(200px);
+                opacity: 0;
+            }
+        }
+
+        @keyframes blink {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        .satellite-pulse {
+            animation: pulse 2s infinite;
         }
     </style>
 
 </head>
 
 <body>
+    <div class="space-background"></div>
+    <div class="stars"></div>
+    <div class="shooting-stars">
+        <div class="shooting-star" style="top: 20%; left: 10%; animation-delay: 0s;"></div>
+        <div class="shooting-star" style="top: 40%; left: 30%; animation-delay: 1s;"></div>
+        <div class="shooting-star" style="top: 60%; left: 50%; animation-delay: 2s;"></div>
+        <div class="shooting-star" style="top: 80%; left: 70%; animation-delay: 3s;"></div>
+    </div>
 
     <!-- Header Section -->
     <header class="top-bar">
@@ -32,41 +318,31 @@
             <h1>🌍 Satellite Data Visualization</h1>
         </div>
         <div class="right-side">
-            <button id="toggleMode">🌙 Dark Mode</button>
-            <button id="logoutBtn">🚪 Logout</button>
+            <button id="telemetryBtn" class="satellite-pulse" onclick="window.location.href='/telementary'">📡 Telemetry</button>
+            <button id="logoutBtn" class="satellite-pulse">🚪 Logout</button>
         </div>
     </header>
 
-
-
     <!-- Dashboard Layout -->
     <div class="dashboard">
-
         <!-- Left Panel -->
         <section class="panel left">
-
             <h2>🌍 Satellite Location</h2>
-            <div id="map"></div> <!-- Map to show satellite position -->
+            <div id="map" class="satellite-pulse"></div>
         </section>
 
         <!-- Central Real-Time Tracker -->
         <section class="panel center">
             <h1>🌍 Real-Time Satellite Tracker 🚀</h1>
             <input type="text" id="satelliteInput" placeholder="Enter satellite name">
-            <button onclick="searchSatellite()">Search</button>
+            <button onclick="searchSatellite()" class="satellite-pulse">Search</button>
             <p id="satelliteResult"></p>
         </section>
-
-
-
     </div>
 
     <!-- JavaScript -->
-
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-
     <script src="{{ url_for('static', filename='script.js') }}"></script>
-
     <script>
         const token = localStorage.getItem("token");
         if (!token) {
@@ -76,9 +352,7 @@
         }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
-
 </body>
 
 </html>

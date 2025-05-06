@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satellite Telemetry Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Orbitron', sans-serif;
+            background: #0a0a1a;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 80% 20%;
+            height: 100vh;
+        }
+
+        .map-container {
+            position: relative;
+            height: 100vh;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .satellite-list {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            overflow-y: auto;
+            border-left: 1px solid rgba(0, 243, 255, 0.3);
+            max-width: 300px;
+        }
+
+        .satellite-item {
+            background: rgba(0, 243, 255, 0.1);
+            margin: 8px 0;
+            padding: 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            position: relative;
+            border-left: 3px solid transparent;
+        }
+
+        .satellite-item:hover {
+            background: rgba(0, 243, 255, 0.2);
+            transform: translateX(5px);
+        }
+
+        .satellite-item.selected {
+            background: rgba(0, 243, 255, 0.3);
+            border-left: 3px solid #00f3ff;
+            padding-left: 20px;
+        }
+
+        .satellite-item.selected::before {
+            content: '🛰️';
+            position: absolute;
+            left: 5px;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid rgba(0, 243, 255, 0.3);
+        }
+
+        .time-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .mode-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background: linear-gradient(45deg, #00f3ff, #00a1ff);
+            border: none;
+            color: #000;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+        }
+
+        .satellite-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            z-index: 1000;
+            width: 300px;
+            backdrop-filter: blur(5px);
+        }
+
+        .satellite-info h3 {
+            color: #00f3ff;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+            border-bottom: 1px solid rgba(0, 243, 255, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .info-item {
+            margin-bottom: 8px;
+        }
+
+        .info-label {
+            color: #00f3ff;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .info-value {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .orbit-path {
+            stroke: #00f3ff;
+            stroke-width: 2;
+            fill: none;
+            opacity: 0.5;
+            animation: orbitPulse 2s infinite;
+        }
+
+        .orbit-path-future {
+            stroke-dasharray: 5, 10;
+            opacity: 0.3;
+        }
+
+        .orbit-path-past {
+            stroke-dasharray: none;
+            opacity: 0.7;
+        }
+
+        @keyframes orbitPulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 0.7; }
+            100% { opacity: 0.5; }
+        }
+
+        .satellite-marker {
+            width: 24px;
+            height: 24px;
+            background: transparent;
+            position: relative;
+        }
+
+        .satellite-marker::before {
+            content: '🛰️';
+            font-size: 24px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            filter: drop-shadow(0 0 5px #00f3ff);
+            animation: satelliteFloat 2s infinite;
+        }
+
+        @keyframes satelliteFloat {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            25% { transform: translate(-50%, -55%) rotate(5deg); }
+            50% { transform: translate(-50%, -50%) rotate(0deg); }
+            75% { transform: translate(-50%, -45%) rotate(-5deg); }
+            100% { transform: translate(-50%, -50%) rotate(0deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="controls">
+                <div class="time-controls">
+                    <button id="utcTime">UTC: <span id="utcDisplay">00:00:00</span></button>
+                    <button id="localTime">Local: <span id="localDisplay">00:00:00</span></button>
+                </div>
+                <div class="mode-controls">
+                    <button id="realTimeBtn">Real-Time</button>
+                    <button id="simulationBtn">Simulation</button>
+                </div>
+            </div>
+            <div class="satellite-info">
+                <h3>Selected Satellite</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Name</div>
+                        <div class="info-value" id="satName">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Type</div>
+                        <div class="info-value" id="satType">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Altitude</div>
+                        <div class="info-value" id="satAltitude">- km</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Velocity</div>
+                        <div class="info-value" id="satVelocity">- km/s</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Latitude</div>
+                        <div class="info-value" id="satLatitude">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Longitude</div>
+                        <div class="info-value" id="satLongitude">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Orbit Period</div>
+                        <div class="info-value" id="satPeriod">- min</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Next Pass</div>
+                        <div class="info-value" id="satNextPass">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="satellite-list" id="satelliteList">
+            <!-- Satellite list will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Time display
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('utcDisplay').textContent = now.toUTCString().split(' ')[4];
+            document.getElementById('localDisplay').textContent = now.toTimeString().split(' ')[0];
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Satellite data
+        let satellites = [];
+        let selectedSatellite = null;
+        let orbitPaths = {};
+        let satelliteMarkers = {};
+        let positionUpdateInterval = null;
+
+        // Fetch satellite list
+        async function fetchSatellites() {
+            try {
+                const response = await fetch('/api/satellites');
+                satellites = await response.json();
+                populateSatelliteList();
+            } catch (error) {
+                console.error('Error fetching satellites:', error);
+            }
+        }
+
+        // Populate satellite list
+        function populateSatelliteList() {
+            const list = document.getElementById('satelliteList');
+            list.innerHTML = '';
+            satellites.forEach(sat => {
+                const div = document.createElement('div');
+                div.className = 'satellite-item';
+                div.setAttribute('data-satellite-id', sat.id);
+                div.innerHTML = `${sat.name} <span style="color: #00f3ff; font-size: 0.8em;">(${sat.type})</span>`;
+                div.onclick = () => {
+                    // Remove selected class from all items
+                    document.querySelectorAll('.satellite-item').forEach(item => {
+                        item.classList.remove('selected');
+                    });
+                    // Add selected class to clicked item
+                    div.classList.add('selected');
+                    selectSatellite(sat);
+                };
+                list.appendChild(div);
+            });
+        }
+
+        // Select satellite
+        async function selectSatellite(satellite) {
+            selectedSatellite = satellite;
+            
+            // Update selected state in list
+            document.querySelectorAll('.satellite-item').forEach(item => {
+                if (item.getAttribute('data-satellite-id') === satellite.id) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+            
+            // Clear previous updates
+            if (positionUpdateInterval) {
+                clearInterval(positionUpdateInterval);
+            }
+            
+            // Remove previous orbit path and marker
+            if (orbitPaths[satellite.id]) {
+                map.removeLayer(orbitPaths[satellite.id].past);
+                map.removeLayer(orbitPaths[satellite.id].future);
+            }
+            if (satelliteMarkers[satellite.id]) {
+                map.removeLayer(satelliteMarkers[satellite.id]);
+            }
+
+            // Fetch and display orbit path
+            await fetchOrbitPath(satellite.id);
+            
+            // Start position updates
+            updateSatellitePosition();
+            positionUpdateInterval = setInterval(updateSatellitePosition, 5000); // Update every 5 seconds
+        }
+
+        // Update satellite position
+        async function updateSatellitePosition() {
+            if (!selectedSatellite) return;
+
+            try {
+                const response = await fetch(`/api/satellite/${selectedSatellite.id}/position`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    console.warn(`Failed to update position: ${data.error || 'Unknown error'}`);
+                    return;
+                }
+
+                // Update info display with fallback values
+                document.getElementById('satName').textContent = data.name || '-';
+                document.getElementById('satType').textContent = data.type || '-';
+                document.getElementById('satAltitude').textContent = data.altitude ? `${data.altitude.toFixed(2)} km` : '- km';
+                document.getElementById('satVelocity').textContent = data.velocity ? `${data.velocity.toFixed(2)} km/s` : '- km/s';
+                document.getElementById('satLatitude').textContent = data.latitude ? data.latitude.toFixed(4) : '-';
+                document.getElementById('satLongitude').textContent = data.longitude ? data.longitude.toFixed(4) : '-';
+                document.getElementById('satPeriod').textContent = data.period ? `${data.period.toFixed(0)} min` : '- min';
+                document.getElementById('satNextPass').textContent = data.next_pass || '-';
+
+                // Only update marker if we have valid coordinates
+                if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+                    const latLng = [data.latitude, data.longitude];
+                    if (satelliteMarkers[selectedSatellite.id]) {
+                        satelliteMarkers[selectedSatellite.id].setLatLng(latLng);
+                    } else {
+                        satelliteMarkers[selectedSatellite.id] = L.marker(latLng, {
+                            icon: L.divIcon({
+                                className: 'satellite-marker',
+                                html: '<div class="satellite-marker"></div>',
+                                iconSize: [24, 24],
+                                iconAnchor: [12, 12]
+                            })
+                        }).addTo(map);
+                    }
+
+                    // Center map on satellite
+                    map.setView(latLng, 4);
+                }
+            } catch (error) {
+                console.error('Error updating satellite position:', error);
+            }
+        }
+
+        // Fetch orbit path
+        async function fetchOrbitPath(satelliteId) {
+            try {
+                const response = await fetch(`/api/satellite/${satelliteId}/orbit`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    console.warn(`Failed to fetch orbit path: ${data.error || 'Unknown error'}`);
+                    return;
+                }
+                
+                // Check if path is an array
+                if (!Array.isArray(data)) {
+                    console.warn('Orbit path data is not in expected format');
+                    return;
+                }
+                
+                // Remove previous paths if they exist
+                if (orbitPaths[satelliteId]) {
+                    map.removeLayer(orbitPaths[satelliteId].past);
+                    map.removeLayer(orbitPaths[satelliteId].future);
+                }
+                
+                // Split path into past and future
+                const currentTime = new Date().getTime();
+                const pastPoints = [];
+                const futurePoints = [];
+                
+                data.forEach(point => {
+                    if (!point || typeof point.latitude !== 'number' || typeof point.longitude !== 'number') {
+                        console.warn('Invalid point data:', point);
+                        return;
+                    }
+                    const pointTime = new Date(point.timestamp).getTime();
+                    if (pointTime <= currentTime) {
+                        pastPoints.push([point.latitude, point.longitude]);
+                    } else {
+                        futurePoints.push([point.latitude, point.longitude]);
+                    }
+                });
+
+                // Only create paths if we have points
+                if (pastPoints.length > 0 || futurePoints.length > 0) {
+                    orbitPaths[satelliteId] = {
+                        past: L.polyline(pastPoints, {
+                            color: '#00f3ff',
+                            weight: 2,
+                            opacity: 0.7,
+                            className: 'orbit-path orbit-path-past'
+                        }).addTo(map),
+                        future: L.polyline(futurePoints, {
+                            color: '#00f3ff',
+                            weight: 2,
+                            opacity: 0.3,
+                            dashArray: '5, 10',
+                            className: 'orbit-path orbit-path-future'
+                        }).addTo(map)
+                    };
+                } else {
+                    console.warn('No valid orbit points to display');
+                }
+            } catch (error) {
+                console.error('Error fetching orbit path:', error);
+                // Don't throw the error, just log it and continue
+            }
+        }
+
+        // Initialize
+        fetchSatellites();
+    </script>
+</body>
+</html>

@@ -46,12 +46,106 @@ body {
 }
 
 .login-box {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    width: 100px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    backdrop-filter: blur(5px);
+    cursor: pointer;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.2);
     position: relative;
-    z-index: 2;
-    width: 100%;
+}
+
+.login-box:hover {
+    width: 350px;
+    height: 400px;
     padding: 30px;
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+}
+
+.login-box:hover .login-content {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.login-box:hover .login-header h1 {
+    margin-bottom: 10px;
+    color: #3498db;
+    text-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+    transform: scale(1.1);
+    letter-spacing: 2px;
+}
+
+.login-box:hover .login-header h1::before {
+    transform: scaleX(1);
+}
+
+.login-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+}
+
+.login-box:hover::before {
+    transform: translateX(100%);
+}
+
+.login-header {
     text-align: center;
+    margin-bottom: 30px;
+    white-space: nowrap;
+    position: absolute;
+    top: 20px;
+    left: 0;
+    right: 0;
+    z-index: 2;
+}
+
+.login-header h1 {
     color: #fff;
+    font-size: 32px;
+    margin: 0;
+    transition: all 0.3s ease;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+    font-weight: 600;
+    position: relative;
+    display: inline-block;
+}
+
+.login-header h1::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    bottom: -5px;
+    left: 0;
+    background: linear-gradient(90deg, transparent, #3498db, transparent);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.login-content {
+    display: none;
+    opacity: 0;
+    transition: all 0.3s ease;
+    margin-top: 50px;
 }
 
 .input-group input {
@@ -99,5 +193,218 @@ button:hover {
     }
     100% {
         transform: rotate(360deg);
+    }
+}
+
+/* Background Animation */
+.background-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: -2;
+}
+
+.background-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url("https://media.istockphoto.com/id/181075945/photo/satellite-and-planet.jpg?s=612x612&w=0&k=20&c=SwvAUFvpzar6OFqGoiAqL2TKL5JJ5783mfDMiuE9Pfw=") no-repeat center center/cover;
+    animation: zoomInOut 20s ease-in-out infinite;
+}
+
+.background-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    animation: fadeInOut 8s ease-in-out infinite;
+}
+
+.stars {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url('https://s3-us-west-2.amazonaws.com/s.cdpn.io/1231630/stars.png') repeat;
+    animation: moveStars 50s linear infinite;
+}
+
+.twinkling {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url('https://s3-us-west-2.amazonaws.com/s.cdpn.io/1231630/twinkling.png') repeat;
+    animation: moveTwinkling 100s linear infinite;
+    opacity: 0.4;
+}
+
+@keyframes zoomInOut {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0.5; }
+    50% { opacity: 0.7; }
+    100% { opacity: 0.5; }
+}
+
+@keyframes moveStars {
+    from { background-position: 0 0; }
+    to { background-position: -10000px 5000px; }
+}
+
+@keyframes moveTwinkling {
+    from { background-position: 0 0; }
+    to { background-position: -10000px 5000px; }
+}
+
+/* Login Container */
+.login-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-group {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.form-control:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    outline: none;
+    transform: translateY(-2px);
+}
+
+.form-group label {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #7f8c8d;
+    font-size: 16px;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus + label,
+.form-control:not(:placeholder-shown) + label {
+    top: 0;
+    left: 10px;
+    font-size: 12px;
+    background: white;
+    padding: 0 5px;
+    color: #3498db;
+}
+
+.login-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.login-btn:hover {
+    background: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+}
+
+.login-btn:active {
+    transform: translateY(0);
+}
+
+.login-footer {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.login-footer p {
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+.login-footer a {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.login-footer a:hover {
+    color: #2980b9;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .login-box {
+        background: rgba(30, 30, 47, 0.1);
+    }
+
+    .login-box:hover {
+        background: rgba(30, 30, 47, 0.95);
+    }
+
+    .login-header h1 {
+        color: #ecf0f1;
+    }
+
+    .form-control {
+        background: rgba(44, 62, 80, 0.9);
+        border-color: #34495e;
+        color: #ecf0f1;
+    }
+
+    .form-control:focus {
+        border-color: #3498db;
+    }
+
+    .form-group label {
+        color: #bdc3c7;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+    .login-box:hover {
+        width: 300px;
     }
 }

@@ -93,10 +93,15 @@ async function login() {
 }
 
 // 🌍 Initialize the map globally
-let map = L.map('map').setView([20, 0], 2);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+let map; // declare it globally
+
+document.addEventListener('DOMContentLoaded', function () {
+  map = L.map('map').setView([20, 0], 2); // initialize it here
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+  }).addTo(map);
+});
+
 
 async function searchSatellite() {
     const satelliteId = document.getElementById("satelliteInput").value;
@@ -108,6 +113,8 @@ async function searchSatellite() {
     try {
         const response = await fetch(`${API_BASE_URL}/satellite/search?id=${satelliteId}`);   // ✅ Fixed template literal syntax
         const data = await response.json();
+
+        console.log("Token being sent:", token);
 
         if (response.ok) {
             document.getElementById("satelliteResult").innerHTML = `
