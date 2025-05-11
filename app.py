@@ -42,6 +42,49 @@ class SatelliteSearch(db.Model):
     def __repr__(self):
         return f"<SatelliteSearch(username={self.username}, norad_id={self.norad_id}, date={self.date})>"
 
+# New model to track user-satellite interactions
+class UserSatelliteInteraction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    username = db.Column(db.String(100), nullable=False)
+    satellite_id = db.Column(db.String(50), db.ForeignKey('satellite.id'), nullable=False)
+    interaction_type = db.Column(db.String(20), nullable=False)  # 'click', 'add', 'search'
+    interaction_date = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('satellite_interactions', lazy=True))
+    satellite = db.relationship('Satellite', backref=db.backref('user_interactions', lazy=True))
+
+    def __repr__(self):
+        return f"<UserSatelliteInteraction(username={self.username}, satellite_id={self.satellite_id}, type={self.interaction_type})>"
+
+# Satellite model
+class Satellite(db.Model):
+    id = db.Column(db.String(50), primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(50))
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
+    altitude = db.Column(db.Float)
+    velocity = db.Column(db.Float)
+    period = db.Column(db.Float)
+    next_pass = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'type': self.type,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'altitude': self.altitude,
+            'velocity': self.velocity,
+            'period': self.period,
+            'next_pass': self.next_pass.isoformat() if self.next_pass else None
+        }
+
 # 🔹 Create tables inside an application context
 with app.app_context():
     db.create_all()  # ✅ Creates the users table and satellite_search table
@@ -67,13 +110,44 @@ SATELLITES = [
     {"id": "26871", "name": "USA 164 (GPS)", "type": "navigation"}
 ]
 
+def initialize_default_satellites():
+    """Initialize the database with default satellites if they don't exist."""
+    with app.app_context():
+        for sat_data in SATELLITES:
+            # Check if satellite already exists
+            existing_satellite = Satellite.query.get(sat_data['id'])
+            if not existing_satellite:
+                # Create new satellite with default values
+                satellite = Satellite(
+                    id=sat_data['id'],
+                    name=sat_data['name'],
+                    type=sat_data['type'],
+                    latitude=0.0,  # Default values
+                    longitude=0.0,
+                    altitude=0.0,
+                    velocity=0.0,
+                    period=0.0,
+                    next_pass=None
+                )
+                db.session.add(satellite)
+        
+        try:
+            db.session.commit()
+            print("Default satellites initialized successfully")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error initializing default satellites: {str(e)}")
+
+# Initialize default satellites when the app starts
+initialize_default_satellites()
+
 @app.route('/')
 def home():
     return render_template('o.html')
 
-@app.route('/telementary')
+@app.route('/telemetry')
 def telemetry_page():
-    return render_template('telementary.html')
+    return render_template('telemetry.html')
 
 @app.route('/login')
 def login_page():
@@ -126,8 +200,8 @@ def login():
 
 @app.route('/satellite/search', methods=['GET'])
 def search_satellite():
-    sat_id = request.args.get('id', '').strip()  # Get satellite NORAD ID
-    username = request.args.get('username', '').strip()  # Get username from query parameters
+    sat_id = request.args.get('id', '').strip()
+    username = request.args.get('username', '').strip()
 
     if not sat_id:
         return jsonify({"error": "Satellite ID is required"}), 400
@@ -146,16 +220,23 @@ def search_satellite():
 
     position = data["positions"][0]
 
-    # Store search history without JWT; store user info via username
+    # Store search history and log interaction
     if username:
-        user = User.query.filter_by(username=username).first()  # Find user by username
+        user = User.query.filter_by(username=username).first()
         if user:
-            # Create and store the satellite search data in the database
+            # Create and store the satellite search data
             new_search = SatelliteSearch(user_id=user.id, username=username, norad_id=sat_id)
             db.session.add(new_search)
-            db.session.commit()  # Commit the transaction to save the search
-
-            print(f"Search stored for {username} with NORAD ID {sat_id}.")  # Debugging line
+            
+            # Log the search interaction
+            interaction = UserSatelliteInteraction(
+                user_id=user.id,
+                username=username,
+                satellite_id=sat_id,
+                interaction_type='search'
+            )
+            db.session.add(interaction)
+            db.session.commit()
 
     return jsonify({
         "name": data["info"]["satname"],
@@ -164,9 +245,123 @@ def search_satellite():
         "altitude": position["sataltitude"]
     })
 
+@app.route('/api/satellite/store', methods=['POST'])
+def store_satellite():
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data or 'id' not in data or 'name' not in data:
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        # Get username from request headers or query params
+        username = request.headers.get('X-Username') or request.args.get('username')
+        
+        # Check if satellite already exists
+        existing_satellite = Satellite.query.get(data['id'])
+        if existing_satellite:
+            # Log interaction if user is logged in
+            if username:
+                user = User.query.filter_by(username=username).first()
+                if user:
+                    interaction = UserSatelliteInteraction(
+                        user_id=user.id,
+                        username=username,
+                        satellite_id=data['id'],
+                        interaction_type='add'
+                    )
+                    db.session.add(interaction)
+                    db.session.commit()
+            return jsonify({'code': 'DUPLICATE', 'message': 'Satellite already exists'}), 200
+
+        # Create new satellite
+        satellite = Satellite(
+            id=data['id'],
+            name=data['name'],
+            type=data.get('type'),
+            latitude=data.get('latitude'),
+            longitude=data.get('longitude'),
+            altitude=data.get('altitude'),
+            velocity=data.get('velocity'),
+            period=data.get('period'),
+            next_pass=datetime.fromisoformat(data['next_pass']) if data.get('next_pass') else None
+        )
+
+        db.session.add(satellite)
+        
+        # Log interaction if user is logged in
+        if username:
+            user = User.query.filter_by(username=username).first()
+            if user:
+                interaction = UserSatelliteInteraction(
+                    user_id=user.id,
+                    username=username,
+                    satellite_id=data['id'],
+                    interaction_type='add'
+                )
+                db.session.add(interaction)
+        
+        db.session.commit()
+        return jsonify(satellite.to_dict()), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# New route to log satellite click
+@app.route('/api/satellite/<sat_id>/click', methods=['POST'])
+def log_satellite_click(sat_id):
+    try:
+        username = request.headers.get('X-Username') or request.args.get('username')
+        if not username:
+            return jsonify({'error': 'Username required'}), 400
+
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Log the click interaction
+        interaction = UserSatelliteInteraction(
+            user_id=user.id,
+            username=username,
+            satellite_id=sat_id,
+            interaction_type='click'
+        )
+        db.session.add(interaction)
+        db.session.commit()
+
+        return jsonify({'message': 'Click logged successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# New route to get user's satellite interactions
+@app.route('/api/user/<username>/interactions', methods=['GET'])
+def get_user_interactions(username):
+    try:
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        interactions = UserSatelliteInteraction.query.filter_by(user_id=user.id).all()
+        return jsonify([{
+            'satellite_id': interaction.satellite_id,
+            'interaction_type': interaction.interaction_type,
+            'interaction_date': interaction.interaction_date.isoformat(),
+            'satellite_name': interaction.satellite.name if interaction.satellite else None
+        } for interaction in interactions]), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Update the existing satellites route to include stored satellites
 @app.route('/api/satellites')
 def get_satellites():
-    return jsonify(SATELLITES)
+    try:
+        # Get all stored satellites
+        stored_satellites = Satellite.query.all()
+        return jsonify([sat.to_dict() for sat in stored_satellites])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/satellite/<sat_id>/orbit', methods=['GET'])
 def get_satellite_orbit(sat_id):

@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        
         body {
             margin: 0;
             padding: 0;
@@ -18,7 +19,7 @@
 
         .dashboard {
             display: grid;
-            grid-template-columns: 80% 20%;
+            grid-template-columns: 70% 30%;
             height: 100vh;
         }
 
@@ -32,12 +33,46 @@
             width: 100%;
         }
 
-        .satellite-list {
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
             background: rgba(0, 0, 0, 0.8);
+            border-left: 1px solid rgba(0, 243, 255, 0.3);
+        }
+
+        .satellite-list {
+            flex: 1;
             padding: 15px;
             overflow-y: auto;
-            border-left: 1px solid rgba(0, 243, 255, 0.3);
-            max-width: 300px;
+            max-width: 100%;
+        }
+
+        .drop-zone {
+            padding: 20px;
+            background: rgba(0, 243, 255, 0.05);
+            border: 2px dashed rgba(0, 243, 255, 0.3);
+            border-radius: 10px;
+            margin: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.dragover {
+            background: rgba(0, 243, 255, 0.1);
+            border-color: #00f3ff;
+        }
+
+        .drop-zone p {
+            margin: 0;
+            color: #00f3ff;
+            font-size: 0.9em;
+        }
+
+        .drop-zone .icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+            color: #00f3ff;
         }
 
         .satellite-item {
@@ -71,12 +106,6 @@
             position: absolute;
             left: 5px;
             animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
         }
 
         .controls {
@@ -178,6 +207,12 @@
             opacity: 0.7;
         }
 
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
         @keyframes orbitPulse {
             0% { opacity: 0.5; }
             50% { opacity: 0.7; }
@@ -208,6 +243,22 @@
             50% { transform: translate(-50%, -50%) rotate(0deg); }
             75% { transform: translate(-50%, -45%) rotate(-5deg); }
             100% { transform: translate(-50%, -50%) rotate(0deg); }
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(45deg, #00f3ff, #00a1ff);
+            color: #000;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 600;
+            margin-top: 10px;
+            display: inline-block;
         }
     </style>
 </head>
@@ -263,8 +314,19 @@
                 </div>
             </div>
         </div>
-        <div class="satellite-list" id="satelliteList">
-            <!-- Satellite list will be populated by JavaScript -->
+        <div class="right-panel">
+            <div class="drop-zone" id="dropZone">
+                <div class="icon">📡</div>
+                <p>Drag & Drop Satellite Data File</p>
+                <p>or</p>
+                <label class="upload-btn">
+                    Choose File
+                    <input type="file" class="file-input" id="fileInput" accept=".json,.txt,.csv">
+                </label>
+            </div>
+            <div class="satellite-list" id="satelliteList">
+                <!-- Satellite list will be populated by JavaScript -->
+            </div>
         </div>
     </div>
 
@@ -292,6 +354,129 @@
         let satelliteMarkers = {};
         let positionUpdateInterval = null;
 
+        // Drag and Drop functionality
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('dragover');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('dragover');
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+        fileInput.addEventListener('change', handleFileSelect, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            if (files.length > 0) {
+                const file = files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        processSatelliteData(data);
+                    } catch (error) {
+                        console.error('Error processing file:', error);
+                        alert('Invalid file format. Please upload a valid JSON file.');
+                    }
+                };
+                
+                reader.readAsText(file);
+            }
+        }
+
+        function processSatelliteData(data) {
+            // Add the new satellite to the list
+            if (data && data.id) {
+                // Store satellite in database
+                storeSatellite(data).then(() => {
+                    satellites.push(data);
+                    populateSatelliteList();
+                    // Select the newly added satellite
+                    selectSatellite(data);
+                }).catch(error => {
+                    console.error('Error storing satellite:', error);
+                });
+            }
+        }
+
+        // Store satellite in database
+        async function storeSatellite(satelliteData) {
+            try {
+                const response = await fetch('/api/satellite/store', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Username': localStorage.getItem('username')
+                    },
+                    body: JSON.stringify(satelliteData)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    if (error.code === 'DUPLICATE') {
+                        console.log('Satellite already exists in database');
+                        return; // Silently handle duplicate
+                    }
+                    throw new Error(error.message || 'Failed to store satellite');
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('Error storing satellite:', error);
+                throw error;
+            }
+        }
+
+        // Log satellite click
+        async function logSatelliteClick(satelliteId) {
+            try {
+                const username = localStorage.getItem('username');
+                if (!username) return; // Skip if user is not logged in
+
+                await fetch(`/api/satellite/${satelliteId}/click`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Username': username
+                    }
+                });
+            } catch (error) {
+                console.error('Error logging satellite click:', error);
+            }
+        }
+
         // Fetch satellite list
         async function fetchSatellites() {
             try {
@@ -312,13 +497,13 @@
                 div.className = 'satellite-item';
                 div.setAttribute('data-satellite-id', sat.id);
                 div.innerHTML = `${sat.name} <span style="color: #00f3ff; font-size: 0.8em;">(${sat.type})</span>`;
-                div.onclick = () => {
-                    // Remove selected class from all items
+                div.onclick = async () => {
                     document.querySelectorAll('.satellite-item').forEach(item => {
                         item.classList.remove('selected');
                     });
-                    // Add selected class to clicked item
                     div.classList.add('selected');
+                    // Log the click before selecting the satellite
+                    await logSatelliteClick(sat.id);
                     selectSatellite(sat);
                 };
                 list.appendChild(div);
@@ -329,7 +514,14 @@
         async function selectSatellite(satellite) {
             selectedSatellite = satellite;
             
-            // Update selected state in list
+            // Store selected satellite in database
+            try {
+                await storeSatellite(satellite);
+            } catch (error) {
+                console.error('Error storing selected satellite:', error);
+                // Continue with selection even if storage fails
+            }
+            
             document.querySelectorAll('.satellite-item').forEach(item => {
                 if (item.getAttribute('data-satellite-id') === satellite.id) {
                     item.classList.add('selected');
@@ -338,12 +530,10 @@
                 }
             });
             
-            // Clear previous updates
             if (positionUpdateInterval) {
                 clearInterval(positionUpdateInterval);
             }
             
-            // Remove previous orbit path and marker
             if (orbitPaths[satellite.id]) {
                 map.removeLayer(orbitPaths[satellite.id].past);
                 map.removeLayer(orbitPaths[satellite.id].future);
@@ -352,12 +542,10 @@
                 map.removeLayer(satelliteMarkers[satellite.id]);
             }
 
-            // Fetch and display orbit path
             await fetchOrbitPath(satellite.id);
             
-            // Start position updates
             updateSatellitePosition();
-            positionUpdateInterval = setInterval(updateSatellitePosition, 5000); // Update every 5 seconds
+            positionUpdateInterval = setInterval(updateSatellitePosition, 5000);
         }
 
         // Update satellite position
@@ -373,7 +561,6 @@
                     return;
                 }
 
-                // Update info display with fallback values
                 document.getElementById('satName').textContent = data.name || '-';
                 document.getElementById('satType').textContent = data.type || '-';
                 document.getElementById('satAltitude').textContent = data.altitude ? `${data.altitude.toFixed(2)} km` : '- km';
@@ -383,7 +570,6 @@
                 document.getElementById('satPeriod').textContent = data.period ? `${data.period.toFixed(0)} min` : '- min';
                 document.getElementById('satNextPass').textContent = data.next_pass || '-';
 
-                // Only update marker if we have valid coordinates
                 if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
                     const latLng = [data.latitude, data.longitude];
                     if (satelliteMarkers[selectedSatellite.id]) {
@@ -399,7 +585,6 @@
                         }).addTo(map);
                     }
 
-                    // Center map on satellite
                     map.setView(latLng, 4);
                 }
             } catch (error) {
@@ -418,19 +603,16 @@
                     return;
                 }
                 
-                // Check if path is an array
                 if (!Array.isArray(data)) {
                     console.warn('Orbit path data is not in expected format');
                     return;
                 }
                 
-                // Remove previous paths if they exist
                 if (orbitPaths[satelliteId]) {
                     map.removeLayer(orbitPaths[satelliteId].past);
                     map.removeLayer(orbitPaths[satelliteId].future);
                 }
                 
-                // Split path into past and future
                 const currentTime = new Date().getTime();
                 const pastPoints = [];
                 const futurePoints = [];
@@ -448,7 +630,6 @@
                     }
                 });
 
-                // Only create paths if we have points
                 if (pastPoints.length > 0 || futurePoints.length > 0) {
                     orbitPaths[satelliteId] = {
                         past: L.polyline(pastPoints, {
@@ -470,7 +651,23 @@
                 }
             } catch (error) {
                 console.error('Error fetching orbit path:', error);
-                // Don't throw the error, just log it and continue
+            }
+        }
+
+        // Add function to get user's satellite interactions
+        async function getUserInteractions() {
+            try {
+                const username = localStorage.getItem('username');
+                if (!username) return null;
+
+                const response = await fetch(`/api/user/${username}/interactions`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch user interactions');
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching user interactions:', error);
+                return null;
             }
         }
 
@@ -478,4 +675,4 @@
         fetchSatellites();
     </script>
 </body>
-</html>
+</html> 

@@ -157,12 +157,6 @@ function updateMap(latitude, longitude) {
         .openPopup();
 }
 
-// 🌙 Dark Mode Toggle
-document.getElementById("toggleMode").addEventListener("click", function () {
-    document.body.classList.toggle("light-mode");
-});
-
-
 // ✅ Utility function to handle API requests
 async function fetchData(url, method, body = null) {
     try {
