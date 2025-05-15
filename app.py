@@ -5,10 +5,20 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import create_access_token, JWTManager
 from datetime import datetime, timedelta
+from werkzeug.utils import secure_filename
+from sgp4.api import Satrec
+from skyfield.api import EarthSatellite, load
+import os
+from numpy import linalg as LA
 import math
+from datetime import datetime
+import json
 
 app = Flask(__name__)
 CORS(app)  # Apply CORS early
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # 🔹 Configure PostgreSQL Database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:1234@localhost/Satellite'
@@ -28,35 +38,21 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)  # 🔹 Add this line
     password = db.Column(db.String(200), nullable=False)
 
-# 🔹 Define SatelliteSearch Model (to store search history)
-class SatelliteSearch(db.Model):
+
+class SatelliteData(db.Model):
+    __tablename__ = 'satellite_data'   # must match your DB table name
+
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # Link to User
-    username = db.Column(db.String(100), nullable=False)  # Username of the user who made the search
-    norad_id = db.Column(db.String(100), nullable=False)  # NORAD ID searched
-    date = db.Column(db.DateTime, default=datetime.utcnow)  # Date when the search was made
-
-    # Relationship with User
-    user = db.relationship('User', backref=db.backref('satellite_searches', lazy=True))
-
-    def __repr__(self):
-        return f"<SatelliteSearch(username={self.username}, norad_id={self.norad_id}, date={self.date})>"
-
-# New model to track user-satellite interactions
-class UserSatelliteInteraction(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     username = db.Column(db.String(100), nullable=False)
-    satellite_id = db.Column(db.String(50), db.ForeignKey('satellite.id'), nullable=False)
-    interaction_type = db.Column(db.String(20), nullable=False)  # 'click', 'add', 'search'
-    interaction_date = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    user = db.relationship('User', backref=db.backref('satellite_interactions', lazy=True))
-    satellite = db.relationship('Satellite', backref=db.backref('user_interactions', lazy=True))
-
-    def __repr__(self):
-        return f"<UserSatelliteInteraction(username={self.username}, satellite_id={self.satellite_id}, type={self.interaction_type})>"
+    name = db.Column(db.String(200))
+    type = db.Column(db.String(200))
+    altitude = db.Column(db.Float)
+    velocity = db.Column(db.Float)
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
+    period = db.Column(db.Float)
+    next_pass = db.Column(db.String(200))
+    saved_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # Satellite model
 class Satellite(db.Model):
@@ -156,6 +152,10 @@ def login_page():
 @app.route('/signup')
 def signup_page():
     return render_template('signup.html')
+# Admin login page route
+@app.route('/admin')
+def admin_login_page():
+    return render_template('admin_login.html')
 
 # 🔹 SIGNUP ROUTE
 @app.route('/signup-page', methods=['POST'])
@@ -492,6 +492,96 @@ def get_satellite_position(sat_id):
         return jsonify({"error": f"API request failed: {str(e)}"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'})
+
+    file = request.files['file']
+    filename = secure_filename(file.filename)
+
+    if not filename.endswith(('.txt', '.json')):
+        return jsonify({'error': 'Invalid file format. Only .txt or .json allowed.'})
+
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+
+    try:
+        with open(filepath, 'r') as f:
+            lines = f.readlines()
+
+        tle_lines = [line.strip() for line in lines if line.strip()]
+        if len(tle_lines) < 3:
+            return jsonify({'error': 'Invalid TLE format'})
+
+        name, tle1, tle2 = tle_lines[0], tle_lines[1], tle_lines[2]
+
+        # Use Skyfield to process TLE
+        ts = load.timescale()
+        satellite = EarthSatellite(tle1, tle2, name, ts)
+        t = ts.now()
+        geocentric = satellite.at(t)
+
+        # Get position and velocity
+        subpoint = geocentric.subpoint()
+        altitude = subpoint.elevation.km
+        latitude = subpoint.latitude.degrees
+        longitude = subpoint.longitude.degrees
+
+        # ✅ Correct velocity calculation
+        velocity_vector = geocentric.velocity.km_per_s
+        speed = LA.norm(velocity_vector)
+
+        return jsonify({
+            'name': name,
+            'type': 'CSS (TIANHE)',  # Or detect type from TLE source
+            'altitude': round(altitude, 2),
+            'velocity': round(speed, 2),
+            'latitude': round(latitude, 2),
+            'longitude': round(longitude, 2)
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'Error processing file: {str(e)}'})
+
+
+@app.route('/upload', methods=['POST'])
+def upload():
+    username = request.form.get('username')
+    if not username:
+        return jsonify({"error": "username is required"}), 400
+
+    file = request.files.get('file')
+    if not file:
+        return jsonify({"error": "file is required"}), 400
+
+    try:
+        content = file.read().decode('utf-8')
+        data = json.loads(content)
+
+        satellite = SatelliteData(
+            username=username,
+            name=data.get('name'),
+            type=data.get('type'),
+            altitude=float(data.get('altitude', 0)),
+            velocity=float(data.get('velocity', 0)),
+            latitude=float(data.get('latitude', 0)),
+            longitude=float(data.get('longitude', 0)),
+            period=float(data.get('period', 0)) if data.get('period') else None,
+            next_pass=data.get('nextPass')
+        )
+
+        db.session.add(satellite)
+        db.session.commit()
+
+        return jsonify(data)
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
 
 @app.route('/logout', methods=['POST'])
 def logout():

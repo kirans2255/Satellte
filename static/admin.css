@@ -1,0 +1,88 @@
+body {
+    background: linear-gradient(120deg, #56ccf2 0%, #2f80ed 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+    margin: 0;
+}
+.admin-login-container {
+    background: #fff;
+    padding: 2.5rem 2.5rem 2rem 2.5rem;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(44, 62, 80, 0.13), 0 1.5px 3.5px rgba(44, 62, 80, 0.18);
+    max-width: 370px;
+    width: 100%;
+    animation: slideIn 0.8s cubic-bezier(.9,-0.02,.15,1.19);
+    transition: box-shadow 0.2s;
+}
+.admin-login-container:hover {
+    box-shadow: 0 12px 36px rgba(44, 62, 80, 0.20), 0 2.5px 6px rgba(44, 62, 80, 0.24);
+}
+@keyframes slideIn {
+    0% { transform: translateY(-45px); opacity: 0; }
+    80% { transform: translateY(15px); opacity: 0.9;}
+    100% { transform: translateY(0); opacity: 1; }
+}
+.admin-logo {
+    color: #2f80ed;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    letter-spacing: 1px;
+    font-weight: 700;
+    font-size: 1.8rem;
+}
+.admin-login-form .input-group {
+    margin-bottom: 1.2rem;
+    display: flex;
+    flex-direction: column;
+}
+.admin-login-form label {
+    margin-bottom: 0.5rem;
+    color: #34495e;
+    font-weight: 500;
+    font-size: 1rem;
+}
+.admin-login-form input {
+    padding: 0.6rem 1rem;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.2s;
+    font-size: 1rem;
+    background: #f6fbff;
+}
+.admin-login-form input:focus {
+    border-color: #2f80ed;
+    background: #eef6fa;
+}
+.login-btn {
+    display: block;
+    width: 100%;
+    padding: 0.85rem 0;
+    background: linear-gradient(90deg, #2f80ed 60%, #56ccf2 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1.1rem;
+    box-shadow: 0 2px 8px rgba(44, 62, 80, 0.14);
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s, outline 0.18s;
+    margin-top: 1.2rem;
+    outline: none;
+}
+.login-btn:hover, .login-btn:active {
+    background: linear-gradient(90deg, #1a70e3 80%, #56ccf2 100%);
+    box-shadow: 0 6px 16px rgba(35, 51, 74, 0.18);
+}
+@media (max-width: 480px) {
+    .admin-login-container {
+        padding: 1.5rem 1.2rem;
+        max-width: 98vw;
+    }
+    .admin-logo {
+        font-size: 1.3rem;
+    }
+}

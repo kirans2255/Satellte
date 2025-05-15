@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +8,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        
         body {
             margin: 0;
             padding: 0;
@@ -208,15 +208,31 @@
         }
 
         @keyframes pulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
+            0% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.5;
+            }
         }
 
         @keyframes orbitPulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 0.7; }
-            100% { opacity: 0.5; }
+            0% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+
+            100% {
+                opacity: 0.5;
+            }
         }
 
         .satellite-marker {
@@ -238,11 +254,25 @@
         }
 
         @keyframes satelliteFloat {
-            0% { transform: translate(-50%, -50%) rotate(0deg); }
-            25% { transform: translate(-50%, -55%) rotate(5deg); }
-            50% { transform: translate(-50%, -50%) rotate(0deg); }
-            75% { transform: translate(-50%, -45%) rotate(-5deg); }
-            100% { transform: translate(-50%, -50%) rotate(0deg); }
+            0% {
+                transform: translate(-50%, -50%) rotate(0deg);
+            }
+
+            25% {
+                transform: translate(-50%, -55%) rotate(5deg);
+            }
+
+            50% {
+                transform: translate(-50%, -50%) rotate(0deg);
+            }
+
+            75% {
+                transform: translate(-50%, -45%) rotate(-5deg);
+            }
+
+            100% {
+                transform: translate(-50%, -50%) rotate(0deg);
+            }
         }
 
         .file-input {
@@ -262,6 +292,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="dashboard">
         <div class="map-container">
@@ -328,6 +359,8 @@
                 <!-- Satellite list will be populated by JavaScript -->
             </div>
         </div>
+        <div id="map" style="height: 400px; margin-top: 20px;"></div>
+
     </div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
@@ -353,6 +386,8 @@
         let orbitPaths = {};
         let satelliteMarkers = {};
         let positionUpdateInterval = null;
+        let satelliteMarker = null; // 👈 Add this at the top
+
 
         // Drag and Drop functionality
         const dropZone = document.getElementById('dropZone');
@@ -397,24 +432,62 @@
             handleFiles(files);
         }
 
+
+        const satelliteIcon = L.divIcon({
+            html: '<div style="font-size: 28px;">🛰️</div>',
+            className: '',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+
         function handleFiles(files) {
-            if (files.length > 0) {
-                const file = files[0];
-                const reader = new FileReader();
-                
-                reader.onload = function(e) {
-                    try {
-                        const data = JSON.parse(e.target.result);
-                        processSatelliteData(data);
-                    } catch (error) {
-                        console.error('Error processing file:', error);
-                        alert('Invalid file format. Please upload a valid JSON file.');
+            console.log("Files received:", files);
+
+
+            const formData = new FormData();
+            formData.append('file', files[0]);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Upload successful:", data);
+
+                    // Update UI
+                    document.getElementById('satName').textContent = data.name || '-';
+                    document.getElementById('satType').textContent = data.type || '-';
+                    document.getElementById('satAltitude').textContent = data.altitude ? `${data.altitude} km` : '- km';
+                    document.getElementById('satVelocity').textContent = data.velocity ? `${data.velocity} km/s` : '- km/s';
+                    document.getElementById('satLatitude').textContent = data.latitude || '-';
+                    document.getElementById('satLongitude').textContent = data.longitude || '-';
+                    document.getElementById('satPeriod').textContent = data.period ? `${data.period} min` : '- min';
+                    document.getElementById('satNextPass').textContent = data.nextPass || '-';
+
+                    // Show on map
+                    if (data.latitude && data.longitude) {
+                        const lat = parseFloat(data.latitude);
+                        const lon = parseFloat(data.longitude);
+
+                        map.setView([lat, lon], 4);
+
+                        if (satelliteMarker) {
+                            map.removeLayer(satelliteMarker);
+                        }
+
+                        satelliteMarker = L.marker([lat, lon], { icon: satelliteIcon })
+                            .addTo(map)
+                            .bindPopup(`<b>${data.name}</b><br>Altitude: ${data.altitude} km<br>Velocity: ${data.velocity} km/s`)
+                            .openPopup();
                     }
-                };
-                
-                reader.readAsText(file);
-            }
+                })
+                .catch(error => {
+                    console.error("Upload error:", error);
+                });
         }
+
+
 
         function processSatelliteData(data) {
             // Add the new satellite to the list
@@ -513,7 +586,7 @@
         // Select satellite
         async function selectSatellite(satellite) {
             selectedSatellite = satellite;
-            
+
             // Store selected satellite in database
             try {
                 await storeSatellite(satellite);
@@ -521,7 +594,7 @@
                 console.error('Error storing selected satellite:', error);
                 // Continue with selection even if storage fails
             }
-            
+
             document.querySelectorAll('.satellite-item').forEach(item => {
                 if (item.getAttribute('data-satellite-id') === satellite.id) {
                     item.classList.add('selected');
@@ -529,11 +602,11 @@
                     item.classList.remove('selected');
                 }
             });
-            
+
             if (positionUpdateInterval) {
                 clearInterval(positionUpdateInterval);
             }
-            
+
             if (orbitPaths[satellite.id]) {
                 map.removeLayer(orbitPaths[satellite.id].past);
                 map.removeLayer(orbitPaths[satellite.id].future);
@@ -543,7 +616,7 @@
             }
 
             await fetchOrbitPath(satellite.id);
-            
+
             updateSatellitePosition();
             positionUpdateInterval = setInterval(updateSatellitePosition, 5000);
         }
@@ -555,7 +628,7 @@
             try {
                 const response = await fetch(`/api/satellite/${selectedSatellite.id}/position`);
                 const data = await response.json();
-                
+
                 if (!response.ok) {
                     console.warn(`Failed to update position: ${data.error || 'Unknown error'}`);
                     return;
@@ -597,26 +670,26 @@
             try {
                 const response = await fetch(`/api/satellite/${satelliteId}/orbit`);
                 const data = await response.json();
-                
+
                 if (!response.ok) {
                     console.warn(`Failed to fetch orbit path: ${data.error || 'Unknown error'}`);
                     return;
                 }
-                
+
                 if (!Array.isArray(data)) {
                     console.warn('Orbit path data is not in expected format');
                     return;
                 }
-                
+
                 if (orbitPaths[satelliteId]) {
                     map.removeLayer(orbitPaths[satelliteId].past);
                     map.removeLayer(orbitPaths[satelliteId].future);
                 }
-                
+
                 const currentTime = new Date().getTime();
                 const pastPoints = [];
                 const futurePoints = [];
-                
+
                 data.forEach(point => {
                     if (!point || typeof point.latitude !== 'number' || typeof point.longitude !== 'number') {
                         console.warn('Invalid point data:', point);
@@ -675,4 +748,5 @@
         fetchSatellites();
     </script>
 </body>
-</html> 
+
+</html>
