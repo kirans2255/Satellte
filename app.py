@@ -40,6 +40,8 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)  #
+    is_blocked = db.Column(db.Boolean, default=False)  # New field
+
 
 class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -227,8 +229,12 @@ def login_user():
     password = data.get('password')
 
     user = User.query.filter_by(username=username).first()
+
     if not user or not bcrypt.check_password_hash(user.password, password):
         return jsonify({'error': 'Invalid user credentials'}), 401
+
+    if user.is_blocked:
+        return jsonify({'error': 'Your account is blocked. Contact admin.'}), 403
 
     access_token = create_access_token(identity=user.id, additional_claims={"role": "user"})
     return jsonify({'message': 'User login successful', 'token': access_token}), 200
@@ -653,12 +659,26 @@ def weekly_signups():
     data = [{'date': result.date.strftime('%Y-%m-%d'), 'count': result.count} for result in results]
     return jsonify(data)
 
+@app.route('/users/<int:user_id>/block', methods=['POST'])
+def block_user(user_id):
+    user = User.query.get_or_404(user_id)
+    user.is_blocked = True
+    db.session.commit()
+    return jsonify({"message": f"User {user.username} blocked"}), 200
+
+@app.route('/users/<int:user_id>/unblock', methods=['POST'])
+def unblock_user(user_id):
+    user = User.query.get_or_404(user_id)
+    user.is_blocked = False
+    db.session.commit()
+    return jsonify({"message": f"User {user.username} unblocked"}), 200
+
+
 @app.route('/users')
 def show_list():
     users = User.query.all()
     print("Fetched users:", users)
     return render_template('users.html', users=users)
-
 
 
 @app.route('/users')

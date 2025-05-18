@@ -2,20 +2,25 @@
 <html>
 <head>
   <title>User List</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      background-color: #f2f9f8;
+      background: linear-gradient(to right, #e0f7fa, #f2f9f8);
       padding: 30px;
     }
     h2 {
       color: #00796b;
+      text-align: center;
+      margin-bottom: 30px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       background-color: white;
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+      border-radius: 8px;
+      overflow: hidden;
     }
     th, td {
       padding: 14px;
@@ -23,31 +28,98 @@
       border-bottom: 1px solid #ccc;
     }
     th {
-      background-color: #e0f2f1;
+      background-color: #b2dfdb;
       color: #004d40;
     }
     tr:hover {
       background-color: #f1f1f1;
+    }
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s, background-color 0.3s;
+    }
+    button:hover {
+      transform: scale(1.05);
+    }
+    .block-btn {
+      background-color: #ef5350;
+      color: white;
+    }
+    .block-btn:hover {
+      background-color: #e53935;
+    }
+    .unblock-btn {
+      background-color: #66bb6a;
+      color: white;
+    }
+    .unblock-btn:hover {
+      background-color: #43a047;
     }
   </style>
 </head>
 <body>
   <h2>Registered Users</h2>
   <table>
-    <tr>
-      <th>ID</th>
-      <th>Username</th>
-      <th>Email</th>
-      <th>Signup Date</th>
-    </tr>
-    {% for user in users %}
-    <tr>
-      <td>{{ user.id }}</td>
-      <td>{{ user.username }}</td>
-      <td>{{ user.email }}</td>
-      <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
-    </tr>
-    {% endfor %}
+    <thead>
+      <tr>
+        <th>ID</th><th>Username</th><th>Email</th><th>Signup Date</th><th>Status</th><th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+      <tr id="user-{{ user.id }}">
+        <td>{{ user.id }}</td>
+        <td>{{ user.username }}</td>
+        <td>{{ user.email }}</td>
+        <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+        <td>{{ "Blocked" if user.is_blocked else "Active" }}</td>
+        <td>
+          {% if user.is_blocked %}
+            <button class="unblock-btn" onclick="toggleBlock({{ user.id }}, false)">Unblock</button>
+          {% else %}
+            <button class="block-btn" onclick="toggleBlock({{ user.id }}, true)">Block</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
   </table>
+
+  <!-- Toastify -->
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+  <script>
+    function toggleBlock(userId, block) {
+      const url = `/users/${userId}/${block ? 'block' : 'unblock'}`;
+      fetch(url, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          Toastify({
+            text: block ? "User successfully blocked" : "User successfully unblocked",
+            duration: 3000,
+            gravity: "top",
+            position: "right",
+            backgroundColor: block ? "#e53935" : "#43a047",
+            stopOnFocus: true
+          }).showToast();
+          setTimeout(() => location.reload(), 1500);
+        })
+        .catch(err => {
+          Toastify({
+            text: "Something went wrong!",
+            duration: 3000,
+            gravity: "top",
+            position: "right",
+            backgroundColor: "#ff5722",
+            stopOnFocus: true
+          }).showToast();
+        });
+    }
+  </script>
+  
 </body>
 </html>

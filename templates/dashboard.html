@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Dashboard | Weekly User Signups</title>
@@ -81,6 +82,7 @@
     }
   </style>
 </head>
+
 <body>
 
   <div class="top-bar">
@@ -106,10 +108,11 @@
         confirmButtonText: 'Yes, logout'
       }).then((result) => {
         if (result.isConfirmed) {
-          window.location.href = '/logout';
+          window.location.href = '/login';  // <-- Call the logout endpoint
         }
       });
     }
+
 
     // Fetch data and render chart
     fetch('/api/user-signups-weekly')
@@ -156,4 +159,5 @@
   </script>
 
 </body>
+
 </html>
