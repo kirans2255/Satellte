@@ -3,25 +3,28 @@ const API_BASE_URL = "http://127.0.0.1:5000";
 // 🔹 Signup Function
 async function signup() {
     const username = document.getElementById("signupUsername").value.trim();
-    const email = document.getElementById("signupEmail").value.trim();  // 🔹 Get email
+    const email = document.getElementById("signupEmail").value.trim();
     const password = document.getElementById("signupPassword").value.trim();
+    const role = document.getElementById("signupRole").value;  // 🔹 Get selected role
 
-    if (!username || !email || !password) {
+    if (!username || !email || !password || !role) {
         Toastify({
-            text: "Please fill all fields: username, email, and password.",
+            text: "Please fill all fields and select a role.",
             duration: 3000,
             gravity: "top",
             position: "right",
-            backgroundColor: "#f44336", // red
+            backgroundColor: "#f44336",
         }).showToast();
         return;
     }
 
+    const endpoint = role === "admin" ? "/signup-admin" : "/signup-user";
+
     try {
-        const response = await fetch(`${API_BASE_URL}/signup-page`, {
+        const response = await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, email, password }),  // 🔹 Include email
+            body: JSON.stringify({ username, email, password })
         });
 
         const data = await response.json();
@@ -32,7 +35,7 @@ async function signup() {
                 duration: 2000,
                 gravity: "top",
                 position: "right",
-                backgroundColor: "#4CAF50", // green
+                backgroundColor: "#4CAF50",
             }).showToast();
 
             setTimeout(() => {
@@ -61,45 +64,57 @@ async function signup() {
 
 
 // 🔹 Login Function
-async function login() {
-    const username = document.getElementById("loginUsername").value;
-    const password = document.getElementById("loginPassword").value;
+// async function login() {
+//     const username = document.getElementById("loginUsername").value.trim();
+//     const password = document.getElementById("loginPassword").value.trim();
+//     const role = document.getElementById("loginRole").value;
 
-    if (!username || !password) {
-        alert("Please enter both username and password.");
-        return;
-    }
+//     if (!username || !password || !role) {
+//         alert("Please enter username, password and select a role.");
+//         return;
+//     }
 
-    try {
-        const response = await fetch(`${API_BASE_URL}/login-page`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password }),
-        });
+//     // 🔸 Use role-based login endpoint
+//     const endpoint = role === "admin" ? "/login-admin" : "/login-user";
 
-        const data = await response.json();
+//     try {
+//         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+//             method: "POST",
+//             headers: { "Content-Type": "application/json" },
+//             body: JSON.stringify({ username, password, role }),
+//         });
 
-        if (response.ok) {
-            alert("Login successful!");
-            localStorage.setItem("token", data.token); // Save JWT token
-            window.location.href = "/"; // Redirect to dashboard
-        } else {
-            alert(data.error || "Invalid login.");
-        }
-    } catch (error) {
-        console.error("Login error:", error);
-        alert("Error during login.");
-    }
-}
+//         const data = await response.json();
+
+//         if (response.ok) {
+//             alert("Login successful!");
+//             localStorage.setItem("token", data.token);
+//             localStorage.setItem("role", role);
+
+//             // ✅ Redirect based on role
+//             if (role === "admin") {
+//                 window.location.href = "/dashboard";
+//             } else {
+//                 window.location.href = "/";
+//             }
+//         } else {
+//             alert(data.error || "Invalid login.");
+//         }
+//     } catch (error) {
+//         console.error("Login error:", error);
+//         alert("Error during login.");
+//     }
+// }
+
 
 // 🌍 Initialize the map globally
 let map; // declare it globally
 
 document.addEventListener('DOMContentLoaded', function () {
-  map = L.map('map').setView([20, 0], 2); // initialize it here
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+    map = L.map('map').setView([20, 0], 2); // initialize it here
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 });
 
 
@@ -180,34 +195,55 @@ async function fetchData(url, method, body = null) {
 async function login() {
     const username = document.getElementById("loginUsername").value.trim();
     const password = document.getElementById("loginPassword").value.trim();
+    const role = document.getElementById("loginRole").value;
 
-    if (!username || !password) {
+    if (!username || !password || !role) {
         Swal.fire({
             icon: "warning",
             title: "Missing Fields",
-            text: "Please enter both username and password.",
+            text: "Please enter username, password, and select a role.",
         });
         return;
     }
 
-    const data = await fetchData(`${API_BASE_URL}/login-page`, "POST", { username, password });
+    // Choose correct endpoint based on selected role
+    const endpoint = role === "admin" ? "/login-admin" : "/login-user";
 
-    if (data) {
-        Swal.fire({
-            icon: "success",
-            title: "Login Successful!",
-            text: "Redirecting to dashboard...",
-            timer: 2000,
-            showConfirmButton: false,
-        }).then(() => {
-            localStorage.setItem("token", data.token); // Save JWT token
-            window.location.href = "/"; // Redirect to dashboard
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
         });
-    } else {
+
+        const data = await response.json();
+
+        if (response.ok) {
+            localStorage.setItem("token", data.token);
+            localStorage.setItem("role", role);
+
+            Swal.fire({
+                icon: "success",
+                title: "Login Successful!",
+                text: "Redirecting...",
+                timer: 2000,
+                showConfirmButton: false,
+            }).then(() => {
+                window.location.href = role === "admin" ? "/dashboard" : "/";
+            });
+        } else {
+            Swal.fire({
+                icon: "error",
+                title: "Login Failed",
+                text: data.error || "Invalid credentials.",
+            });
+        }
+    } catch (err) {
+        console.error("Login error:", err);
         Swal.fire({
             icon: "error",
-            title: "Login Failed",
-            text: "Incorrect username or password.",
+            title: "Login Error",
+            text: "An error occurred while trying to log in.",
         });
     }
 }

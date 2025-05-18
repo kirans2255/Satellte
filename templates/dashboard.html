@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard | Weekly User Signups</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      background: linear-gradient(to bottom right, #e0f7fa, #ffffff);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .top-bar {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 40px;
+      background-color: #ffffff;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      margin-bottom: 30px;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #00796b;
+    }
+
+    .logout-btn {
+      padding: 10px 18px;
+      background-color: #ff5252;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .logout-btn:hover {
+      background-color: #e53935;
+    }
+
+    .chart-container {
+      width: 80%;
+      max-width: 800px;
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+      margin-bottom: 30px;
+    }
+
+    #signupChart {
+      width: 100%;
+      height: 400px;
+    }
+
+    .users-btn {
+      padding: 12px 22px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .users-btn:hover {
+      background-color: #388e3c;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <div class="title">Dashboard - Weekly User Signups</div>
+    <button class="logout-btn" onclick="confirmLogout()">Logout</button>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="signupChart"></canvas>
+  </div>
+
+  <button class="users-btn" onclick="window.location.href='/users'">View Users List</button>
+
+  <script>
+    function confirmLogout() {
+      Swal.fire({
+        title: 'Are you sure?',
+        text: "Do you want to logout?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, logout'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          window.location.href = '/logout';
+        }
+      });
+    }
+
+    // Fetch data and render chart
+    fetch('/api/user-signups-weekly')
+      .then(response => {
+        if (!response.ok) throw new Error('Network error');
+        return response.json();
+      })
+      .then(data => {
+        const labels = data.map(entry => entry.date);
+        const counts = data.map(entry => entry.count);
+
+        const ctx = document.getElementById('signupChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Weekly User Signups',
+              data: counts,
+              borderColor: 'rgba(0, 150, 136, 1)',
+              backgroundColor: 'rgba(0, 150, 136, 0.2)',
+              fill: true,
+              tension: 0.4,
+              pointBackgroundColor: '#004d40',
+              pointRadius: 5
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  precision: 0
+                }
+              }
+            }
+          }
+        });
+      })
+      .catch(error => {
+        console.error('Error fetching chart data:', error);
+      });
+  </script>
+
+</body>
+</html>

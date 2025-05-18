@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template , session, redirect, url_for
 import requests
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -13,6 +13,8 @@ from numpy import linalg as LA
 import math
 from datetime import datetime
 import json
+from sqlalchemy import func
+
 
 app = Flask(__name__)
 CORS(app)  # Apply CORS early
@@ -35,7 +37,14 @@ jwt = JWTManager(app)
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)  # 🔹 Add this line
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)  #
+
+class Admin(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
 
 
@@ -157,22 +166,25 @@ def signup_page():
 def admin_login_page():
     return render_template('admin_login.html')
 
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
+
+
 # 🔹 SIGNUP ROUTE
-@app.route('/signup-page', methods=['POST'])
-def signup():
+@app.route('/signup-user', methods=['POST'])
+def signup_user():
     data = request.json
     username = data.get('username')
-    email = data.get('email')  # 🔹 Get email from request
+    email = data.get('email')
     password = data.get('password')
 
     if not username or not email or not password:
         return jsonify({'error': 'Username, email, and password are required'}), 400
 
-    if User.query.filter_by(username=username).first():
-        return jsonify({'error': 'Username already exists'}), 409
-
-    if User.query.filter_by(email=email).first():
-        return jsonify({'error': 'Email already in use'}), 409
+    if User.query.filter_by(username=username).first() or User.query.filter_by(email=email).first():
+        return jsonify({'error': 'Username or email already in use'}), 409
 
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
     new_user = User(username=username, email=email, password=hashed_password)
@@ -182,21 +194,61 @@ def signup():
     return jsonify({'message': 'User created successfully'}), 201
 
 
+@app.route('/signup-admin', methods=['POST'])
+def signup_admin():
+    data = request.json
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+
+    if not username or not email or not password:
+        return jsonify({'error': 'Username, email, and password are required'}), 400
+
+    if Admin.query.first():
+        return jsonify({'error': 'Only one admin allowed'}), 403
+
+    if Admin.query.filter_by(username=username).first() or Admin.query.filter_by(email=email).first():
+        return jsonify({'error': 'Username or email already in use'}), 409
+
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+    new_admin = Admin(username=username, email=email, password=hashed_password)
+    db.session.add(new_admin)
+    db.session.commit()
+
+    return jsonify({'message': 'Admin created successfully'}), 201
+
+
+
 # 🔹 LOGIN ROUTE
-@app.route('/login-page', methods=['POST'])
-def login():
+@app.route('/login-user', methods=['POST'])
+def login_user():
     data = request.json
     username = data.get('username')
     password = data.get('password')
 
     user = User.query.filter_by(username=username).first()
-    
     if not user or not bcrypt.check_password_hash(user.password, password):
-        return jsonify({'error': 'Invalid username or password'}), 401
+        return jsonify({'error': 'Invalid user credentials'}), 401
 
-    # Generate JWT token
-    access_token = create_access_token(identity=user.id)
-    return jsonify({'message': 'Login successful', 'token': access_token}), 200
+    access_token = create_access_token(identity=user.id, additional_claims={"role": "user"})
+    return jsonify({'message': 'User login successful', 'token': access_token}), 200
+
+
+
+@app.route('/login-admin', methods=['POST'])
+def login_admin():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+
+    admin = Admin.query.filter_by(username=username).first()
+    if not admin or not bcrypt.check_password_hash(admin.password, password):
+        return jsonify({'error': 'Invalid admin credentials'}), 401
+
+    access_token = create_access_token(identity=admin.id, additional_claims={"role": "admin"})
+    return jsonify({'message': 'Admin login successful', 'token': access_token}), 200
+
+
 
 @app.route('/satellite/search', methods=['GET'])
 def search_satellite():
@@ -581,7 +633,41 @@ def upload():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/user-signups-weekly')
+def weekly_signups():
+    today = datetime.utcnow()
+    start_date = today - timedelta(days=6)  # Last 7 days
 
+    # Group by day and count users
+    results = (
+        db.session.query(
+            func.date(User.created_at).label('date'),
+            func.count(User.id).label('count')
+        )
+        .filter(User.created_at >= start_date)
+        .group_by(func.date(User.created_at))
+        .order_by(func.date(User.created_at))
+        .all()
+    )
+
+    data = [{'date': result.date.strftime('%Y-%m-%d'), 'count': result.count} for result in results]
+    return jsonify(data)
+
+@app.route('/users')
+def show_list():
+    users = User.query.all()
+    print("Fetched users:", users)
+    return render_template('users.html', users=users)
+
+
+
+@app.route('/users')
+def users_list():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    users = User.query.order_by(User.created_at.desc()).all()
+    return render_template('users.html', users=users)
 
 @app.route('/logout', methods=['POST'])
 def logout():

@@ -3,6 +3,7 @@
     "axios": "^1.8.2",
     "chart.js": "^4.4.8",
     "cors": "^2.8.5",
+    "recharts": "^2.15.3",
     "sweetalert2": "^11.17.2",
     "toastify": "^2.0.1"
   }

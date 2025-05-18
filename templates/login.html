@@ -7,7 +7,8 @@
     <title>Login - Satellite Tracking</title>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
 
 </head>
 
@@ -20,7 +21,7 @@
     </div>
 
     <div class="login-container">
-            <div class="login-box">
+        <div class="login-box">
             <div class="login-header">
                 <h1>Login</h1>
             </div>
@@ -34,6 +35,13 @@
                         <input type="password" id="loginPassword" class="form-control" required>
                         <label>Password</label>
                     </div>
+                    <div class="form-group">
+                        <select id="loginRole" class="form-control" required>
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <label>Select Role</label>
+                    </div>                    
                     <button type="submit" class="login-btn">
                         <span>Login</span>
                     </button>
